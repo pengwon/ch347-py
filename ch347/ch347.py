@@ -321,7 +321,7 @@ class CH347:
             an empty object with default values.
         """
         spi_config = SPIConfig()
-        result = self.ch347dll.CH347SPI_GetCfg(self.device_index, ctypes.byref(spiCfg))
+        result = self.ch347dll.CH347SPI_GetCfg(self.device_index, ctypes.byref(spi_config))
         if result:
             return spi_config
         else:
@@ -486,7 +486,6 @@ class CH347:
         Process I2C data stream.
 
         Args:
-            device_index (int): Device number.
             write_data (bytes): Data to write. The first byte is usually the I2C device address and read/write direction bit.
             read_length (int): Number of bytes of data to read.
 
