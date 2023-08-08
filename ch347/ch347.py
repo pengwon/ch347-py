@@ -1,7 +1,6 @@
 import ctypes
 
 
-
 class DeviceInfo(ctypes.Structure):
     MAX_PATH = 260
     _fields_ = [
@@ -53,9 +52,9 @@ class CH347:
 
     INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
     
-    def __init__(self, dev_index=0, dll_path="ch347/lib/CH347DLLA64.DLL"):
+    def __init__(self, device_index=0, dll_path="ch347/lib/CH347DLLA64.DLL"):
         self.ch347dll = ctypes.WinDLL(dll_path)
-        self.dev_index = dev_index
+        self.device_index = device_index
 
         # 创建回调函数对象并绑定到实例属性
         self.callback_func = self.NOTIFY_ROUTINE(self.event_callback)
@@ -169,13 +168,10 @@ class CH347:
         """
         Open USB device.
 
-        Args:
-            dev_index (int): Device number.
-
         Returns:
             int: Handle to the opened device if successful, None otherwise.
         """
-        handle = self.ch347dll.CH347OpenDevice(self.dev_index)
+        handle = self.ch347dll.CH347OpenDevice(self.device_index)
         if handle != self.INVALID_HANDLE_VALUE:
             return handle
         else:
@@ -185,28 +181,22 @@ class CH347:
         """
         Close USB device.
 
-        Args:
-            dev_index (int): Device number.
-
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347CloseDevice(self.dev_index)
+        result = self.ch347dll.CH347CloseDevice(self.device_index)
         return result
 
     def get_device_info(self):
         """
         Get device information.
 
-        Args:
-            dev_index (int): Device number.
-
         Returns:
             bool: True if successful, False otherwise.
             DeviceInfo: Device information.
         """
         dev_info = DeviceInfo()
-        result = self.ch347dll.CH347GetDeviceInfor(self.dev_index, ctypes.byref(dev_info))
+        result = self.ch347dll.CH347GetDeviceInfor(self.device_index, ctypes.byref(dev_info))
         if result:
             return dev_info
         else:
@@ -233,7 +223,7 @@ class CH347:
         chip_type = ctypes.c_ubyte()
 
         # Call the CH347GetVersion function
-        result = self.ch347dll.CH347GetVersion(self.dev_index,
+        result = self.ch347dll.CH347GetVersion(self.device_index,
                                         ctypes.byref(driver_ver),
                                         ctypes.byref(dll_ver),
                                         ctypes.byref(device_ver),
@@ -248,7 +238,6 @@ class CH347:
         Configure device event notifier.
 
         Args:
-            dev_index (int): Device number.
             iDeviceID (str): Optional parameter specifying the ID of the monitored device.
             iNotifyRoutine (callable): Callback function to handle device events.
 
@@ -256,7 +245,7 @@ class CH347:
             bool: True if successful, False otherwise.
         """
         callback = self.NOTIFY_ROUTINE(iNotifyRoutine)
-        result = self.ch347dll.CH347SetDeviceNotify(self.dev_index, iDeviceID, callback)
+        result = self.ch347dll.CH347SetDeviceNotify(self.device_index, iDeviceID, callback)
         return result
     
     def read_data(self, oBuffer, ioLength):
@@ -264,14 +253,13 @@ class CH347:
         Read USB data block.
 
         Args:
-            dev_index (int): Device number.
             oBuffer (ctypes.c_void_p): Pointer to a buffer to store the read data.
             ioLength (ctypes.POINTER(ctypes.c_ulong)): Pointer to the length unit. Contains the length to be read as input and the actual read length after return.
 
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347ReadData(self.dev_index, oBuffer, ioLength)
+        result = self.ch347dll.CH347ReadData(self.device_index, oBuffer, ioLength)
         return result
 
     def write_data(self, iBuffer, ioLength):
@@ -279,14 +267,13 @@ class CH347:
         Write USB data block.
 
         Args:
-            dev_index (int): Device number.
             iBuffer (ctypes.c_void_p): Pointer to a buffer containing the data to be written.
             ioLength (ctypes.POINTER(ctypes.c_ulong)): Pointer to the length unit. Input length is the intended length, and the return length is the actual length.
 
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347WriteData(self.dev_index, iBuffer, ioLength)
+        result = self.ch347dll.CH347WriteData(self.device_index, iBuffer, ioLength)
         return result
     
     def set_timeout(self, iWriteTimeout, iReadTimeout):
@@ -294,36 +281,31 @@ class CH347:
         Set the timeout of USB data read and write.
 
         Args:
-            dev_index (int): Device number.
             iWriteTimeout (int): Timeout for USB to write data blocks, in milliseconds. Use 0xFFFFFFFF to specify no timeout (default).
             iReadTimeout (int): Timeout for USB to read data blocks, in milliseconds. Use 0xFFFFFFFF to specify no timeout (default).
 
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347SetTimeout(self.dev_index, iWriteTimeout, iReadTimeout)
+        result = self.ch347dll.CH347SetTimeout(self.device_index, iWriteTimeout, iReadTimeout)
         return result
     
-    def spi_init(self, device_index: int, spi_config: SPIConfig) -> bool:
+    def spi_init(self, spi_config: SPIConfig) -> bool:
         """
         Initialize the SPI Controller.
 
         Args:
-            device_index (int): The device number.
             spi_config (SPIConfig): The configuration for the SPI controller.
 
         Returns:
             bool: True if initialization is successful, False otherwise.
         """
-        result = self.ch347dll.CH347SPI_Init(device_index, ctypes.byref(spi_config))
+        result = self.ch347dll.CH347SPI_Init(self.device_index, ctypes.byref(spi_config))
         return result
     
     def spi_get_cfg(self):
         """
         Get SPI controller configuration information.
-
-        Args:
-            dev_index (int): Device number.
 
         Returns:
             tuple: A tuple containing a boolean value indicating if the operation was successful
@@ -339,7 +321,7 @@ class CH347:
             an empty object with default values.
         """
         spi_config = SPIConfig()
-        result = self.ch347dll.CH347SPI_GetCfg(self.dev_index, ctypes.byref(spiCfg))
+        result = self.ch347dll.CH347SPI_GetCfg(self.device_index, ctypes.byref(spiCfg))
         if result:
             return spi_config
         else:
@@ -350,13 +332,12 @@ class CH347:
         Change the chip selection status.
 
         Args:
-            dev_index (int): Device number.
             iStatus (int): Chip selection status. 0 = Cancel the piece to choose, 1 = Set piece selected.
 
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347SPI_ChangeCS(self.dev_index, iStatus)
+        result = self.ch347dll.CH347SPI_ChangeCS(self.device_index, iStatus)
         return result
     
     def spi_set_chip_select(self, iEnableSelect, iChipSelect, iIsAutoDeativeCS, iActiveDelay, iDelayDeactive):
@@ -364,7 +345,6 @@ class CH347:
         Set SPI slice selection.
 
         Args:
-            dev_index (int): Device number.
             iEnableSelect (int): Enable selection status. The lower octet is CS1 and the higher octet is CS2.
                                 A byte value of 1 sets CS, 0 ignores this CS setting.
             iChipSelect (int): Chip selection status. The lower octet is CS1 and the higher octet is CS2.
@@ -379,15 +359,14 @@ class CH347:
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347SPI_SetChipSelect(self.dev_index, iEnableSelect, iChipSelect, iIsAutoDeativeCS, iActiveDelay, iDelayDeactive)
+        result = self.ch347dll.CH347SPI_SetChipSelect(self.device_index, iEnableSelect, iChipSelect, iIsAutoDeativeCS, iActiveDelay, iDelayDeactive)
         return result
     
-    def spi_write(self, device_index: int, chip_select: int, write_data: bytes, write_step: int = 512) -> bool:
+    def spi_write(self, chip_select: int, write_data: bytes, write_step: int = 512) -> bool:
         """
         SPI write data.
 
         Args:
-            device_index (int): Device number.
             chip_select (int): Chip selection control. When bit 7 is 0, chip selection control is ignored.
                                 When bit 7 is 1, chip selection operation is performed.
             write_data (bytes): Data to write.
@@ -398,16 +377,15 @@ class CH347:
         """
         write_length = len(write_data)
         write_buffer = ctypes.create_string_buffer(write_data)
-        result = self.ch347dll.CH347SPI_Write(device_index, chip_select, write_length, write_step, write_buffer)
+        result = self.ch347dll.CH347SPI_Write(self.device_index, chip_select, write_length, write_step, write_buffer)
         return result
 
 
-    def spi_read(self, device_index: int, chip_select: int, write_data: bytes, read_length: int) -> bytes:
+    def spi_read(self, chip_select: int, write_data: bytes, read_length: int) -> bytes:
         """
         SPI read data.
 
         Args:
-            device_index (int): Device number.
             chip_select (int): Chip selection control. When bit 7 is 0, chip selection control is ignored.
                             When bit 7 is 1, chip selection operation is performed.
             write_data (bytes): Data to write.
@@ -427,7 +405,7 @@ class CH347:
         # Create combined buffer for read and write data
         combined_buffer = ctypes.create_string_buffer(write_buffer.raw[:write_length] + read_buffer.raw)
 
-        result = self.ch347dll.CH347SPI_Read(device_index, chip_select, write_length, ctypes.byref(ctypes.c_ulong(read_length)), combined_buffer)
+        result = self.ch347dll.CH347SPI_Read(self.device_index, chip_select, write_length, ctypes.byref(ctypes.c_ulong(read_length)), combined_buffer)
 
         if result:
             # Extract the read data from the combined buffer
@@ -442,7 +420,6 @@ class CH347:
         Handle SPI data stream 4-wire interface.
 
         Args:
-            dev_index (int): Device number.
             iChipSelect (int): Selection control. If the film selection control bit 7 is 0, ignore the film selection control.
                                If bit 7 is 1, perform the film selection.
             iLength (int): Number of bytes of data to be transferred.
@@ -452,7 +429,7 @@ class CH347:
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347SPI_WriteRead(self.dev_index, iChipSelect, iLength, ioBuffer)
+        result = self.ch347dll.CH347SPI_WriteRead(self.device_index, iChipSelect, iLength, ioBuffer)
         return result
 
     def stream_spi4(self, iChipSelect, iLength, ioBuffer):
@@ -460,7 +437,6 @@ class CH347:
         Handle SPI data stream 4-wire interface.
 
         Args:
-            dev_index (int): Device number.
             iChipSelect (int): Film selection control. If bit 7 is 0, slice selection control is ignored.
                                If bit 7 is 1, the parameter is valid: Bit 1 bit 0 is 00/01/10.
                                Select D0/D1/D2 pins as low-level active chip options, respectively.
@@ -471,15 +447,14 @@ class CH347:
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347StreamSPI4(self.dev_index, iChipSelect, iLength, ioBuffer)
+        result = self.ch347dll.CH347StreamSPI4(self.device_index, iChipSelect, iLength, ioBuffer)
         return result
     
-    def i2c_set(self, device_index, interface_speed):
+    def i2c_set(self, interface_speed):
         """
         Set the serial port flow mode.
 
         Args:
-            device_index (int): Device number.
             interface_speed (int): I2C interface speed / SCL frequency. Bit 1-bit 0:
                                 0 = low speed / 20KHz
                                 1 = standard / 100KHz (default)
@@ -489,25 +464,24 @@ class CH347:
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347I2C_Set(device_index, interface_speed)
+        result = self.ch347dll.CH347I2C_Set(self.device_index, interface_speed)
         return result
 
 
-    def i2c_set_delay_ms(self, device_index, delay_ms):
+    def i2c_set_delay_ms(self, delay_ms):
         """
         Set the hardware asynchronous delay to a specified number of milliseconds before the next stream operation.
 
         Args:
-            device_index (int): Device number.
             delay_ms (int): Delay duration in milliseconds (ms).
 
         Returns:
             bool: True if successful, False otherwise.
         """
-        result = self.ch347dll.CH347I2C_SetDelaymS(device_index, delay_ms)
+        result = self.ch347dll.CH347I2C_SetDelaymS(self.device_index, delay_ms)
         return result
 
-    def stream_i2c(self, device_index, write_data, read_length):
+    def stream_i2c(self, write_data, read_length):
         """
         Process I2C data stream.
 
@@ -527,7 +501,7 @@ class CH347:
         # Create ctypes buffer for read data
         read_buffer = ctypes.create_string_buffer(read_length)
 
-        result = self.ch347dll.CH347StreamI2C(device_index, write_length, write_buffer, read_length, read_buffer)
+        result = self.ch347dll.CH347StreamI2C(self.device_index, write_length, write_buffer, read_length, read_buffer)
 
         if result:
             return (read_buffer[:read_length])
