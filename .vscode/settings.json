@@ -1,4 +1,30 @@
 {
     "editor.suggest.snippetsPreventQuickSuggestions": false,
-    "aiXcoder.showTrayIcon": true
+    "aiXcoder.showTrayIcon": true,
+    "terminal.explorerKind": "integrated",
+    "terminal.integrated.profiles.windows": {
+        "Conda":{
+            "name": "Conda",
+            "path": "pwsh",
+            "args": [
+                "-ExecutionPolicy",
+                "ByPass",
+                "-NoExit",
+                "-Command",
+                "& '${env:userprofile}\\miniconda3\\shell\\condabin\\conda-hook.ps1' "
+            ]
+        },
+        "Anaconda":{
+            "name": "Anaconda",
+            "path": "pwsh",
+            "args": [
+                "-ExecutionPolicy",
+                "ByPass",
+                "-NoExit",
+                "-Command",
+                "& '${env:userprofile}\\anaconda3\\shell\\condabin\\conda-hook.ps1' "
+            ]
+        }
+    },
+    "Codegeex.Comment.LanguagePreference": "zh-CN"
 }
