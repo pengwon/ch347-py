@@ -102,7 +102,7 @@ class SD_NAND:
             return R1Response(self.driver.spi_read(chip_select, data, 9))
 
     def initialize(self):
-        self.driver.spi_change_cs(1)
+        # self.driver.spi_change_cs(1)
         self.driver.spi_write(0x00, [0xFF] * 10)
         response = self._send_cmd(0, 0)  # CMD0: GO_IDLE_STATE
         print(response.get_raw_data())
