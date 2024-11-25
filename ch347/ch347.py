@@ -64,7 +64,7 @@ class SPIConfig(ctypes.Structure):
             ctypes.c_ubyte,
         ),  # Bit 0: CS2 polarity control, 0: active low, 1: active high
         (
-            "IsAutoDeativeCS",
+            "IsAutoDeactiveCS",
             ctypes.c_ushort,
         ),  # Automatically de-assert chip select after the operation is completed
         (
@@ -79,7 +79,6 @@ class SPIConfig(ctypes.Structure):
 
 
 class CH347:
-
     # MAX devices number
     MAX_DEVICE_NUMBER = 8
 
@@ -416,20 +415,14 @@ class CH347:
 
     def spi_get_config(self):
         """
-        Get SPI controller configuration information.
+        Retrieves the SPI controller configuration information.
 
         Returns:
-            tuple: A tuple containing a boolean value indicating if the operation was successful
-            and the SPI configuration structure.
+            SPIConfig: An instance of the SPIConfig class containing the configuration information
+            if the operation was successful. If the operation failed, returns None.
 
-            The first element (bool) represents whether the operation was successful or not.
-            - True: The operation was successful.
-            - False: The operation failed.
-
-            The second element (SPIConfig): An instance of the SPIConfig class, representing the
-            SPI configuration structure. If the operation was successful, this object will contain
-            the configuration information retrieved from the SPI controller. Otherwise, it will be
-            an empty object with default values.
+        The returned SPIConfig object will contain the configuration details retrieved from the SPI
+        controller if the operation was successful. Otherwise, it will be None.
         """
         spi_config = SPIConfig()
         result = self.ch347dll.CH347SPI_GetCfg(
