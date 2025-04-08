@@ -87,8 +87,22 @@ class CH347:
 
     INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
 
-    def __init__(self, device_index=0, dll_path="ch347/lib/CH347DLLA64.DLL"):
-        self.ch347dll = ctypes.WinDLL(dll_path)
+    def __init__(self, device_index=0, dll_path=None):
+        """
+        Initialize the CH347 interface.
+
+        Args:
+            device_index (int): The index of the device to open (default: 0).
+            dll_path (str, optional): Path to the CH347 DLL file. If None, the system will
+                                    search for the DLL in system directories.
+        """
+        if dll_path is None:
+            # Let Windows find the DLL in system directories
+            self.ch347dll = ctypes.WinDLL("CH347DLLA64")
+        else:
+            # Use the specified path
+            self.ch347dll = ctypes.WinDLL(dll_path)
+
         self.device_index = device_index
 
         # 创建回调函数对象并绑定到实例属性
@@ -643,3 +657,261 @@ class CH347:
             return read_buffer[:read_length]
         else:
             return None
+
+    def spi_set_frequency(self, spi_speed_hz: int) -> bool:
+        """
+        Set the SPI clock frequency.
+
+        After calling this interface, you need to call spi_init again for reinitialization.
+
+        Args:
+            spi_speed_hz (int): Set the SPI clock frequency in Hz.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347SPI_SetFrequency, "argtypes"):
+            self.ch347dll.CH347SPI_SetFrequency.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_ulong,
+            ]
+            self.ch347dll.CH347SPI_SetFrequency.restype = ctypes.c_bool
+
+        result = self.ch347dll.CH347SPI_SetFrequency(self.device_index, spi_speed_hz)
+        return result
+
+    def spi_set_data_bits(self, data_bits: int) -> bool:
+        """
+        Set the SPI data bits (only supported by CH347F).
+
+        Args:
+            data_bits (int): 0=8bit, 1=16bit
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347SPI_SetDataBits, "argtypes"):
+            self.ch347dll.CH347SPI_SetDataBits.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_ubyte,
+            ]
+            self.ch347dll.CH347SPI_SetDataBits.restype = ctypes.c_bool
+
+        result = self.ch347dll.CH347SPI_SetDataBits(self.device_index, data_bits)
+        return result
+
+    def get_serial_number(self) -> str:
+        """
+        Get the USB serial number of the device.
+
+        Returns:
+            str: The device serial number if successful, None otherwise.
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347GetSerialNumber, "argtypes"):
+            self.ch347dll.CH347GetSerialNumber.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_char_p,
+            ]
+            self.ch347dll.CH347GetSerialNumber.restype = ctypes.c_bool
+
+        # Create a buffer for the serial number
+        serial_number = ctypes.create_string_buffer(64)
+
+        result = self.ch347dll.CH347GetSerialNumber(
+            self.device_index,
+            serial_number,
+        )
+
+        if result:
+            return serial_number.value.decode("utf-8")
+        else:
+            return None
+
+    def get_chip_type(self) -> int:
+        """
+        Get the CH347 chip type.
+
+        Returns:
+            int: 0=CHIP_TYPE_CH341, 1=CHIP_TYPE_CH347/CHIP_TYPE_CH347T,
+                2=CHIP_TYPE_CH347F, 3=CHIP_TYPE_CH339W
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347GetChipType, "argtypes"):
+            self.ch347dll.CH347GetChipType.argtypes = [ctypes.c_ulong]
+            self.ch347dll.CH347GetChipType.restype = ctypes.c_ubyte
+
+        result = self.ch347dll.CH347GetChipType(self.device_index)
+        return result
+
+    def i2c_set_stretch(self, enable: bool) -> bool:
+        """
+        Set I2C Clock Stretch.
+
+        Args:
+            enable (bool): I2C Clock Stretch enable, True=enable, False=disable
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347I2C_SetStretch, "argtypes"):
+            self.ch347dll.CH347I2C_SetStretch.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_bool,
+            ]
+            self.ch347dll.CH347I2C_SetStretch.restype = ctypes.c_bool
+
+        result = self.ch347dll.CH347I2C_SetStretch(self.device_index, enable)
+        return result
+
+    def i2c_set_driver_mode(self, mode: int) -> bool:
+        """
+        Set the I2C pins drive mode.
+
+        Args:
+            mode (int): 0=open-drain mode, 1=push-pull mode
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347I2C_SetDriverMode, "argtypes"):
+            self.ch347dll.CH347I2C_SetDriverMode.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_ubyte,
+            ]
+            self.ch347dll.CH347I2C_SetDriverMode.restype = ctypes.c_bool
+
+        result = self.ch347dll.CH347I2C_SetDriverMode(self.device_index, mode)
+        return result
+
+    def stream_i2c_ret_ack(self, write_data, read_length) -> tuple:
+        """
+        Process I2C data stream, 2-wire interface, and return the number of ACK obtained by the host side.
+
+        Args:
+            write_data (bytes): Data to write. The first byte is usually the I2C device address and read/write direction bit.
+            read_length (int): Number of bytes of data to read.
+
+        Returns:
+            tuple: (bool, bytes, int) - A tuple containing:
+                - bool: True if successful, False otherwise
+                - bytes: Data read from the I2C stream
+                - int: The number of ACK values returned by read/write
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347StreamI2C_RetACK, "argtypes"):
+            self.ch347dll.CH347StreamI2C_RetACK.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_ulong,
+                ctypes.c_void_p,
+                ctypes.c_ulong,
+                ctypes.c_void_p,
+                ctypes.POINTER(ctypes.c_ulong),
+            ]
+            self.ch347dll.CH347StreamI2C_RetACK.restype = ctypes.c_bool
+
+        write_length = len(write_data)
+
+        # Convert write_data to ctypes buffer
+        write_buffer = ctypes.create_string_buffer(bytes(write_data))
+
+        # Create ctypes buffer for read data
+        read_buffer = ctypes.create_string_buffer(read_length)
+
+        # Create a variable to store the ACK count
+        ack_count = ctypes.c_ulong(0)
+
+        result = self.ch347dll.CH347StreamI2C_RetACK(
+            self.device_index,
+            write_length,
+            write_buffer,
+            read_length,
+            read_buffer,
+            ctypes.byref(ack_count),
+        )
+
+        if result:
+            return result, read_buffer[:read_length], ack_count.value
+        else:
+            return result, None, 0
+
+    def read_eeprom(self, eeprom_id: int, addr: int, length: int) -> bytes:
+        """
+        Reads data blocks from EEPROM.
+
+        Args:
+            eeprom_id (int): EEPROM model ID (see EEPROM_TYPE enum in header file).
+            addr (int): The address of data unit.
+            length (int): Number of bytes of data to be read.
+
+        Returns:
+            bytes: The data read from the EEPROM if successful, None otherwise.
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347ReadEEPROM, "argtypes"):
+            self.ch347dll.CH347ReadEEPROM.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_int,  # EEPROM_TYPE enum
+                ctypes.c_ulong,
+                ctypes.c_ulong,
+                ctypes.POINTER(ctypes.c_ubyte),
+            ]
+            self.ch347dll.CH347ReadEEPROM.restype = ctypes.c_bool
+
+        # Create a buffer for the data
+        buffer = (ctypes.c_ubyte * length)()
+
+        result = self.ch347dll.CH347ReadEEPROM(
+            self.device_index,
+            eeprom_id,
+            addr,
+            length,
+            buffer,
+        )
+
+        if result:
+            return bytes(buffer)
+        else:
+            return None
+
+    def write_eeprom(self, eeprom_id: int, addr: int, data: bytes) -> bool:
+        """
+        Writes a data block to the EEPROM.
+
+        Args:
+            eeprom_id (int): EEPROM model ID (see EEPROM_TYPE enum in header file).
+            addr (int): The address of data unit.
+            data (bytes): Data to be written.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        # Set the function argument types and return type if not already set
+        if not hasattr(self.ch347dll.CH347WriteEEPROM, "argtypes"):
+            self.ch347dll.CH347WriteEEPROM.argtypes = [
+                ctypes.c_ulong,
+                ctypes.c_int,  # EEPROM_TYPE enum
+                ctypes.c_ulong,
+                ctypes.c_ulong,
+                ctypes.POINTER(ctypes.c_ubyte),
+            ]
+            self.ch347dll.CH347WriteEEPROM.restype = ctypes.c_bool
+
+        length = len(data)
+
+        # Convert data to ctypes buffer
+        buffer = (ctypes.c_ubyte * length)(*data)
+
+        result = self.ch347dll.CH347WriteEEPROM(
+            self.device_index,
+            eeprom_id,
+            addr,
+            length,
+            buffer,
+        )
+
+        return result

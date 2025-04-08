@@ -1,9 +1,8 @@
 {
     "editor.suggest.snippetsPreventQuickSuggestions": false,
-    "aiXcoder.showTrayIcon": true,
     "terminal.explorerKind": "integrated",
     "terminal.integrated.profiles.windows": {
-        "Conda":{
+        "Conda": {
             "name": "Conda",
             "path": "pwsh",
             "args": [
@@ -14,7 +13,7 @@
                 "& '${env:userprofile}\\miniconda3\\shell\\condabin\\conda-hook.ps1' "
             ]
         },
-        "Anaconda":{
+        "Anaconda": {
             "name": "Anaconda",
             "path": "pwsh",
             "args": [
@@ -26,5 +25,12 @@
             ]
         }
     },
-    "Codegeex.Comment.LanguagePreference": "zh-CN"
+    "files.associations": {
+        "MMC_SD.C": "cpp"
+    },
+    "spellright.language": [],
+    "spellright.documentTypes": [
+        "latex",
+        "plaintext"
+    ]
 }
