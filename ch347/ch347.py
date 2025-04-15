@@ -303,11 +303,13 @@ class CH347:
 
     def get_device_info(self):
         """
-        Get device information.
+        Retrieve the information of the connected device.
+
+        This method uses the device index to call the CH347 DLL and obtain the device's details.
 
         Returns:
-            bool: True if successful, False otherwise.
-            DeviceInfo: Device information.
+            DeviceInfo: An instance of DeviceInfo with the device details if successful.
+            None: If the retrieval fails.
         """
         dev_info = DeviceInfo()
         result = self.ch347dll.CH347GetDeviceInfor(
