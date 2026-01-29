@@ -1,22 +1,23 @@
-#connect GPIO PIN 4 and PIN 7 for testing interrupt callback
+# connect GPIO PIN 4 and PIN 7 for testing interrupt callback
 
+import ctypes
+import msvcrt  # Windows only, for keyboard input
 import os
-import sys
 import random
 import string
-import ctypes
-import time
+import sys
 import threading
-import msvcrt  # Windows only, for keyboard input
+import time
 
 
 def send_random_uart(ch347, chip_select=0, length=16):
-    rand_str = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-    data = rand_str.encode('utf-8')
+    rand_str = "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
+    data = rand_str.encode("utf-8")
     length_list = [len(data)]
     result = ch347.uart_write(data, length_list)
     print(f"[Sender] Sent ({length_list[0]} bytes): {rand_str} ")
     return result
+
 
 def uart_reader(ch347, stop_event, read_size=64):
     while not stop_event.is_set():
@@ -24,9 +25,10 @@ def uart_reader(ch347, stop_event, read_size=64):
         buffer = (ctypes.c_char * read_size)()
         result = ch347.uart_read(buffer, read_len)
         if result and read_len[0] > 0:
-            data = bytes(buffer[:read_len[0]]).decode('utf-8', errors='ignore')
+            data = bytes(buffer[: read_len[0]]).decode("utf-8", errors="ignore")
             print(f"[Reader] Recv ({read_len[0]}) bytes: {data}")
         time.sleep(0.1)
+
 
 def uart_writer(ch347, stop_event, length=16):
     while not stop_event.is_set():
@@ -46,7 +48,7 @@ def uart_loop_multithread(ch347):
     print("Sending every 1s, reading every 0.1s. Press 'x' to stop.")
     while True:
         if msvcrt.kbhit():
-            if msvcrt.getwch().lower() == 'x':
+            if msvcrt.getwch().lower() == "x":
                 print("Exit requested.")
                 stop_event.set()
                 break
@@ -58,14 +60,13 @@ def uart_loop_multithread(ch347):
 
 
 # Get the parent directory's path
-parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # Add the parent directory to the system path if not already present
 if parent_directory not in sys.path:
     sys.path.insert(0, parent_directory)
 
 from ch347 import CH347
-
 
 ch347 = CH347()
 
@@ -82,14 +83,10 @@ device_info = ch347.uart_get_device_info()
 print("uart_get_device_info", device_info)
 
 
-status = ch347.uart_set_timeout(500,500)
+status = ch347.uart_set_timeout(500, 500)
 print("uart_set_timeout", status)
 
 uart_loop_multithread(ch347)
 
 status = ch347.uart_close()
 print("uart_close", status)
-
-
-
-

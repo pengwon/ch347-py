@@ -8,21 +8,52 @@
 
 ## 安装
 
-### 从源码安装
-
-```bash
-git clone https://github.com/pengwon/ch347-py.git
-cd ch347-py
-```
-
 ### 使用pip安装
-
-[TODO]
 
 你可以通过pip来安装这个库：
 
 ```bash
 pip install ch347-py
+```
+
+### 从源码安装
+
+使用uv进行开发（推荐）：
+
+```bash
+git clone https://github.com/pengwon/ch347-py.git
+cd ch347-py
+
+# 安装uv（如果尚未安装）
+pip install uv
+
+# 创建虚拟环境并安装依赖
+uv sync
+
+# 激活虚拟环境
+source .venv/bin/activate  # Linux/macOS
+# 或
+.venv\Scripts\activate  # Windows
+```
+
+使用传统方式：
+
+```bash
+git clone https://github.com/pengwon/ch347-py.git
+cd ch347-py
+pip install -e .
+```
+
+### 开发环境设置
+
+如果你想参与开发或运行测试，需要安装开发依赖：
+
+```bash
+# 使用uv（推荐）
+uv sync
+
+# 或使用pip
+pip install -e ".[dev]"
 ```
 
 ## 使用方法

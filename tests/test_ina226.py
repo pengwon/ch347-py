@@ -1,12 +1,13 @@
 import os
 import sys
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import numpy as np
 from time import sleep
 
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+
 # Get the parent directory's path
-parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # Add the parent directory to the system path if not already present
 if parent_directory not in sys.path:
@@ -17,8 +18,10 @@ from i2c_devices.ina226 import INA226
 # Initialize the INA226 sensor
 sensor = INA226()
 
+
 def read_sensor_data():
     return [sensor.get_bus_voltage(), sensor.get_current(), sensor.get_power()]
+
 
 # Generator function to produce data from the sensor sensor
 def generate_sensor_data():
@@ -29,6 +32,7 @@ def generate_sensor_data():
         yield data_buffer
         sleep(0.1)
 
+
 # Create a figure with 6 subplots for accelerometer and gyroscope data
 fig, axs = plt.subplots(3, 1, figsize=(8, 12))
 
@@ -38,10 +42,12 @@ lines = [axs[i].plot([], [], lw=2)[0] for i in range(3)]
 # Set the number of data points to be displayed on the plot
 num_display_points = 50
 
+
 def init():
     for line in lines:
         line.set_data([], [])
     return lines
+
 
 def update(frame):
     data_buffer = next(data_generator)
@@ -64,18 +70,21 @@ def update(frame):
 
     return lines
 
+
 # Create the generator for sensor sensor data
 data_generator = generate_sensor_data()
 
 # Create an animation for real-time plotting, update every 100 milliseconds (0.1 seconds)
-ani = animation.FuncAnimation(fig, update, frames=range(100), init_func=init, blit=True, interval=100)
+ani = animation.FuncAnimation(
+    fig, update, frames=range(100), init_func=init, blit=True, interval=100
+)
 
 # Add labels and title to each subplot
-axis_labels = ['Voltage in mV', 'Current in uA', 'Power in mW']
+axis_labels = ["Voltage in mV", "Current in uA", "Power in mW"]
 for i in range(3):
-    axs[i].set_title(f'{axis_labels[i]}')
-    axs[i].set_xlabel('Time Steps')
-    axs[i].set_ylabel('INA226 Data Value')
+    axs[i].set_title(f"{axis_labels[i]}")
+    axs[i].set_xlabel("Time Steps")
+    axs[i].set_ylabel("INA226 Data Value")
 
 plt.tight_layout()
 plt.show()

@@ -1,14 +1,15 @@
-import sys
 import os
+import sys
 
 # Get the parent directory's path
-parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
 # Add the parent directory to the system path if not already present
 if parent_directory not in sys.path:
     sys.path.insert(0, parent_directory)
 
 import ch347
+
 
 class INA226:
     """
@@ -29,6 +30,7 @@ class INA226:
         MANUFACTURER_ID_REG (int): Address of the manufacturer ID register.
         DIE_ID_REG (int): Address of the die ID register.
     """
+
     CONFIG_REG = 0x00
     SHUNT_VOLTAGE_REG = 0x01
     BUS_VOLTAGE_REG = 0x02
@@ -37,8 +39,8 @@ class INA226:
     CALIBRATION_REG = 0x05
     MASK_ENABLE_REG = 0x06
     ALERT_LIMIT_REG = 0x07
-    MANUFACTURER_ID_REG = 0xfe
-    DIE_ID_REG = 0xff
+    MANUFACTURER_ID_REG = 0xFE
+    DIE_ID_REG = 0xFF
 
     def __init__(self, address=0x40, r_shunt=20, driver=ch347.CH347()):
         """
@@ -80,17 +82,16 @@ class INA226:
         Returns:
             int: Result code (0 for success, -1 for failure).
         """
-        if  not (0 <= value <= 65535):
+        if not (0 <= value <= 65535):
             raise ValueError("Value out of range")
-        
+
         byte1 = value >> 8
-        byte2 = value & 0xff
+        byte2 = value & 0xFF
         return self.driver.stream_i2c([self.address, register, byte1, byte2], 0)
-    
+
     def reset(self):
         return self.i2c_write_word(self.CONFIG_REG, 0x8000)
 
-    
     def get_config(self):
         """
         Get the current configuration of the INA226 sensor.
@@ -115,7 +116,7 @@ class INA226:
             Combinations:
                 0: 1    (default)
                 1: 4
-                2: 16 
+                2: 16
                 3: 64
                 4: 128
                 5: 256
@@ -164,11 +165,11 @@ class INA226:
             "avg": (config_value >> 9) & 0x07,
             "vbus_ct": (config_value >> 6) & 0x07,
             "vsh_ct": (config_value >> 3) & 0x07,
-            "mode": config_value & 0x07
+            "mode": config_value & 0x07,
         }
 
         return config
-    
+
     def set_config(self, avg=0, vbus_ct=4, vsh_ct=4, mode=7):
         """
         Set the configuration of the INA226 sensor.
@@ -241,8 +242,8 @@ class INA226:
         """
         raw_data = self.i2c_read_word(self.SHUNT_VOLTAGE_REG)
 
-        if raw_data > 0x7fff:
-            raw_data = 0x7fff - raw_data
+        if raw_data > 0x7FFF:
+            raw_data = 0x7FFF - raw_data
 
         voltage = raw_data * 2.5  # Convert raw data to voltage (uV)
         return voltage
@@ -257,7 +258,7 @@ class INA226:
         raw_data = self.i2c_read_word(self.BUS_VOLTAGE_REG)
         voltage = raw_data * 1.25  # Convert raw data to voltage (mV)
         return voltage
-    
+
     def get_power(self):
         """
         Get the power consumption in milliwatts.
@@ -279,7 +280,7 @@ class INA226:
         raw_data = self.i2c_read_word(self.CURRENT_REG)
         current = raw_data * 2500 / self.r_shunt  # Convert raw data to current (uA)
         return current
-    
+
     def get_calibration(self):
         """
         Get the calibration value from the CALIBRATION_REG register.
@@ -292,14 +293,14 @@ class INA226:
     def set_calibration(self, calibration):
         """
         Set the calibration for the INA226 sensor.
-        
+
         Args:
             calibration (int): A float value representing the calibration factor to be applied to the raw data.
         Returns:
             int: Result code (0 for success, -1 for failure).
         """
         return self.i2c_write_word(self.CALIBRATION_REG, calibration)
-    
+
     def get_mask_enable(self):
         """
         Get the settings of the Mask/Enable Register.
@@ -319,7 +320,7 @@ class INA226:
             - "LEN" (bool): Alert Latch Enable (Latch or Transparent).
         """
         mask_enable = self.i2c_read_word(self.MASK_ENABLE_REG)
-        
+
         settings = {
             "SOL": bool(mask_enable & 0x8000),
             "SUL": bool(mask_enable & 0x4000),
@@ -331,9 +332,9 @@ class INA226:
             "CVRF": bool(mask_enable & 0x0008),
             "OVF": bool(mask_enable & 0x0004),
             "APOL": bool(mask_enable & 0x0002),
-            "LEN": bool(mask_enable & 0x0001)
+            "LEN": bool(mask_enable & 0x0001),
         }
-        
+
         return settings
 
     def set_mask_enable(self, bit_name):
@@ -369,7 +370,7 @@ class INA226:
             "CVRF": 0x0008,  # CVRF (Conversion Ready Flag)
             "OVF": 0x0004,  # Math Overflow Flag
             "APOL": 0x0002,  # Alert Polarity
-            "LEN": 0x0001  # Alert Latch Enable
+            "LEN": 0x0001,  # Alert Latch Enable
         }
 
         # 检查输入的位名是否有效
@@ -381,7 +382,7 @@ class INA226:
         else:
             print(f"Invalid bit name: {bit_name}")
             return -1
-        
+
     def get_alert_limit(self):
         """
         Get the value from the Alert Limit Register.
@@ -434,10 +435,10 @@ if __name__ == "__main__":
     # sensor.reset()
     sensor.set_alert_limit(0x1000)
     print(sensor.get_calibration())
-    print(sensor.get_shunt_voltage(), 'uV')
-    print(sensor.get_bus_voltage(), 'mV')
-    print(sensor.get_current(), 'uA')
-    print(sensor.get_power(), 'mW')
+    print(sensor.get_shunt_voltage(), "uV")
+    print(sensor.get_bus_voltage(), "mV")
+    print(sensor.get_current(), "uA")
+    print(sensor.get_power(), "mW")
     # sensor.set_mask_enable('SOL')
     # print(sensor.get_mask_enable())
     print(hex(sensor.get_manufacturer_id()))

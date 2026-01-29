@@ -2,13 +2,13 @@ import os
 import sys
 
 # Get the parent directory's path
-parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # Add the parent directory to the system path if not already present
 if parent_directory not in sys.path:
     sys.path.insert(0, parent_directory)
 
-from ch347 import SPIConfig, CH347
+from ch347 import CH347, SPIConfig
 
 spi_config = SPIConfig(
     Mode=0,

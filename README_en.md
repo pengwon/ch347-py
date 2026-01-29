@@ -8,21 +8,52 @@
 
 ## Installation
 
-### From Source
-
-```bash
-git clone https://github.com/pengwon/ch347-py.git
-cd ch347-py
-```
-
 ### Using pip
-
-[TODO]
 
 You can install this library using pip:
 
 ```bash
 pip install ch347-py
+```
+
+### From Source
+
+Using uv for development (recommended):
+
+```bash
+git clone https://github.com/pengwon/ch347-py.git
+cd ch347-py
+
+# Install uv (if not already installed)
+pip install uv
+
+# Create virtual environment and install dependencies
+uv sync
+
+# Activate virtual environment
+source .venv/bin/activate  # Linux/macOS
+# or
+.venv\Scripts\activate  # Windows
+```
+
+Using traditional method:
+
+```bash
+git clone https://github.com/pengwon/ch347-py.git
+cd ch347-py
+pip install -e .
+```
+
+### Development Setup
+
+If you want to contribute to development or run tests, install development dependencies:
+
+```bash
+# Using uv (recommended)
+uv sync
+
+# or using pip
+pip install -e ".[dev]"
 ```
 
 ## Usage

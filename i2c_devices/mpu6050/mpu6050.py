@@ -9,11 +9,11 @@ https://github.com/m-rtijn/mpu6050
 
 """
 
-import sys
 import os
+import sys
 
 # Get the parent directory's path
-parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
 # Add the parent directory to the system path if not already present
 if parent_directory not in sys.path:
@@ -21,8 +21,8 @@ if parent_directory not in sys.path:
 
 import ch347
 
-class MPU6050:
 
+class MPU6050:
     # Global Variables
     GRAVITIY_MS2 = 9.80665
     address = None
@@ -50,13 +50,13 @@ class MPU6050:
     GYRO_RANGE_1000DEG = 0x10
     GYRO_RANGE_2000DEG = 0x18
 
-    FILTER_BW_256=0x00
-    FILTER_BW_188=0x01
-    FILTER_BW_98=0x02
-    FILTER_BW_42=0x03
-    FILTER_BW_20=0x04
-    FILTER_BW_10=0x05
-    FILTER_BW_5=0x06
+    FILTER_BW_256 = 0x00
+    FILTER_BW_188 = 0x01
+    FILTER_BW_98 = 0x02
+    FILTER_BW_42 = 0x03
+    FILTER_BW_20 = 0x04
+    FILTER_BW_10 = 0x05
+    FILTER_BW_5 = 0x06
 
     # MPU-6050 Registers
     PWR_MGMT_1 = 0x6B
@@ -89,10 +89,10 @@ class MPU6050:
     def read_byte_data(self, register):
         raw_data = self.driver.stream_i2c([self.address, register], 1)
         return raw_data[0]
-    
+
     def write_byte_data(self, register, value):
         return self.driver.stream_i2c([self.address, register, value], 0)
- 
+
     def read_i2c_word(self, register):
         """
         Read two i2c registers and combine them.
@@ -100,7 +100,7 @@ class MPU6050:
         register -- the first register to read from.
         Returns the combined read results.
         """
-        
+
         # Read the data from the registers
         # high = self.read_byte_data(self.address, register)
         # low = self.read_byte_data(self.address, register + 1)
@@ -109,7 +109,7 @@ class MPU6050:
         # value = (high << 8) + low
         value = raw_data[0] << 8 | raw_data[1]
 
-        if (value >= 0x8000):
+        if value >= 0x8000:
             return -((65535 - value) + 1)
         else:
             return value
@@ -122,7 +122,7 @@ class MPU6050:
 
         Returns the temperature in degrees Celcius.
         """
-        
+
         raw_temp = self.read_i2c_word(self.TEMP_OUT0)
         # raw_temp = self.driver.stream_i2c([self.address, self.TEMP_OUT0], 2)
         # temp = raw_temp[0] << 8 | raw_temp[1]
@@ -140,14 +140,14 @@ class MPU6050:
         accel_range -- the range to set the accelerometer to. Using a
         pre-defined range is advised.
         """
-        
+
         # First change it to 0x00 to make sure we write the correct value later
         self.write_byte_data(self.ACCEL_CONFIG, 0x00)
 
         # Write the new range to the ACCEL_CONFIG register
         self.write_byte_data(self.ACCEL_CONFIG, accel_range)
 
-    def read_accel_range(self, raw = False):
+    def read_accel_range(self, raw=False):
         """
         Reads the range the accelerometer is set to.
 
@@ -156,7 +156,7 @@ class MPU6050:
         If raw is False, it will return an integer: -1, 2, 4, 8 or 16. When it
         returns -1 something went wrong.
         """
-        
+
         raw_data = self.read_byte_data(self.ACCEL_CONFIG)
 
         if raw is True:
@@ -173,7 +173,7 @@ class MPU6050:
             else:
                 return -1
 
-    def get_accel_data(self, g = False):
+    def get_accel_data(self, g=False):
         """
         Gets and returns the X, Y and Z values from the accelerometer.
 
@@ -181,7 +181,7 @@ class MPU6050:
         If g is False, it will return the data in m/s^2
         Returns a dictionary with the measurement results.
         """
-        
+
         x = self.read_i2c_word(self.ACCEL_XOUT0)
         y = self.read_i2c_word(self.ACCEL_YOUT0)
         z = self.read_i2c_word(self.ACCEL_ZOUT0)
@@ -206,12 +206,12 @@ class MPU6050:
         z = z / accel_scale_modifier
 
         if g is True:
-            return {'x': x, 'y': y, 'z': z}
+            return {"x": x, "y": y, "z": z}
         elif g is False:
             x = x * self.GRAVITIY_MS2
             y = y * self.GRAVITIY_MS2
             z = z * self.GRAVITIY_MS2
-            return {'x': x, 'y': y, 'z': z}
+            return {"x": x, "y": y, "z": z}
 
     def set_gyro_range(self, gyro_range):
         """
@@ -220,7 +220,7 @@ class MPU6050:
         gyro_range -- the range to set the gyroscope to. Using a pre-defined
         range is advised.
         """
-        
+
         # First change it to 0x00 to make sure we write the correct value later
         self.write_byte_data(self.GYRO_CONFIG, 0x00)
 
@@ -230,13 +230,12 @@ class MPU6050:
     def set_filter_range(self, filter_range=FILTER_BW_256):
         """
         Sets the low-pass bandpass filter frequency"""
-        
+
         # Keep the current EXT_SYNC_SET configuration in bits 3, 4, 5 in the MPU_CONFIG register
         EXT_SYNC_SET = self.read_byte_data(self.MPU_CONFIG) & 0b00111000
-        return self.write_byte_data(self.MPU_CONFIG,  EXT_SYNC_SET | filter_range)
+        return self.write_byte_data(self.MPU_CONFIG, EXT_SYNC_SET | filter_range)
 
-
-    def read_gyro_range(self, raw = False):
+    def read_gyro_range(self, raw=False):
         """
         Reads the range the gyroscope is set to.
 
@@ -245,7 +244,7 @@ class MPU6050:
         If raw is False, it will return 250, 500, 1000, 2000 or -1. If the
         returned value is equal to -1 something went wrong.
         """
-        
+
         raw_data = self.read_byte_data(self.GYRO_CONFIG)
 
         if raw is True:
@@ -268,7 +267,7 @@ class MPU6050:
 
         Returns the read values in a dictionary.
         """
-        
+
         x = self.read_i2c_word(self.GYRO_XOUT0)
         y = self.read_i2c_word(self.GYRO_YOUT0)
         z = self.read_i2c_word(self.GYRO_ZOUT0)
@@ -292,31 +291,32 @@ class MPU6050:
         y = y / gyro_scale_modifier
         z = z / gyro_scale_modifier
 
-        return {'x': x, 'y': y, 'z': z}
+        return {"x": x, "y": y, "z": z}
 
     def get_all_data(self):
         """
         Reads and returns all the available data.
         """
-        
+
         temp = self.get_temp()
         accel = self.get_accel_data()
         gyro = self.get_gyro_data()
 
         return [accel, gyro, temp]
-    
+
     def close(self):
         self.driver.close_device()
+
 
 if __name__ == "__main__":
     mpu = MPU6050()
     print(mpu.get_temp())
     accel_data = mpu.get_accel_data(True)
-    print(accel_data['x'])
-    print(accel_data['y'])
-    print(accel_data['z'])
+    print(accel_data["x"])
+    print(accel_data["y"])
+    print(accel_data["z"])
     gyro_data = mpu.get_gyro_data()
-    print(gyro_data['x'])
-    print(gyro_data['y'])
-    print(gyro_data['z'])
+    print(gyro_data["x"])
+    print(gyro_data["y"])
+    print(gyro_data["z"])
     mpu.close()

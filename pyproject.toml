@@ -1,0 +1,99 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ch347-py"
+version = "0.1.0"
+description = "Python binding library for the CH347 USB-UART/SPI/I2C/JTAG bridge chip"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "Peter" }
+]
+maintainers = [
+    { name = "Peter" }
+]
+keywords = ["ch347", "usb", "spi", "i2c", "uart", "jtag"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/pengwon/ch347-py"
+Repository = "https://github.com/pengwon/ch347-py"
+Issues = "https://github.com/pengwon/ch347-py/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ch347", "i2c_devices", "spi_devices"]
+include = [
+    "ch347/lib/*.DLL",
+    "ch347/include/*.H",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/ch347",
+    "/i2c_devices",
+    "/spi_devices",
+    "/tests",
+    "/README.md",
+    "/README_en.md",
+    "/LICENSE",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "numpy>=1.20.0",
+    "matplotlib>=3.3.0",
+    "ruff>=0.1.0",  # Modern linter and formatter
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
