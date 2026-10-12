@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ch347 import CH347
+from ch347 import CH347, SPIConfig
 from ch347.library import load_library
 from ch347.linux_library import LinuxCH347Library
 
@@ -40,6 +40,10 @@ class FakeLibrary:
 
     def arguments_to(self, function):
         return [args for name, args in self.calls if name == function]
+
+    def prototype(self, function):
+        declared = self.__dict__[function]
+        return declared.argtypes, declared.restype
 
 
 @pytest.fixture
@@ -137,6 +141,37 @@ def test_differently_named_posix_functions_are_found(device, lib):
 
     assert lib.arguments_to("CH347I2C_SetDriveMode") == [(DEVICE_FD, 1)]
     assert lib.arguments_to("CH347StreamI2C_RetAck")[0][:2] == (DEVICE_FD, 2)
+
+
+def test_declared_prototypes_take_what_the_shared_callers_pass(device, lib):
+    """`CH347` builds its arguments for the Windows library and passes the very
+    same objects here, where ctypes compares pointee types: `byref(c_ulong)` for a
+    `POINTER(c_int)` parameter raises, even though both are four bytes on Windows.
+    Replaying every recorded call through the declared prototype catches that
+    without libch347.so.
+    """
+    device.set_timeout(1000, 1000)
+    device.gpio_get([0], [0])
+    device.spi_init(SPIConfig())
+    device.spi_write(0x81, [0x01])
+    device.spi_read(0x81, [0x03], 2)
+    device.stream_spi4(0x80, 4, None)
+    device.stream_i2c_ret_ack(b"\x68\x00", 1)
+    device.i2c_set_driver_mode(1)
+    device.read_eeprom(1, 0, 4)
+    device.write_eeprom(1, 0, b"\x01\x02")
+    device.get_device_info()
+    device.get_chip_type()
+    device.set_interrupt(4, 0, 8, 3, lambda status: None)
+
+    assert lib.calls, "nothing was forwarded to the library"
+    for function, args in lib.calls:
+        argtypes = lib.prototype(function)[0]
+        if argtypes is None:
+            continue
+        # Only the argument conversion matters here, so the result type is dropped.
+        accepts = ctypes.CFUNCTYPE(None, *argtypes)(lambda *received: None)
+        accepts(*args)
 
 
 def test_device_info_reports_what_a_posix_device_knows(device, lib):

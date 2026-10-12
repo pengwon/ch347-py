@@ -65,7 +65,12 @@ def _is_null(pointer):
 
 
 def _configure_prototypes(lib):
-    """Declare libch347.so's own prototypes; the Windows ones would be wrong."""
+    """Declare libch347.so's own prototypes; the Windows ones would be wrong.
+
+    Output parameters that `CH347` allocates -- the transfer length and the ACK
+    count -- are declared as `c_void_p`: the caller's own objects are `c_ulong`,
+    which is eight bytes on LP64 and would not convert to a pointer of four.
+    """
     boolean = ctypes.c_bool
     byte = ctypes.c_ubyte
     fd = ctypes.c_int
@@ -103,7 +108,7 @@ def _configure_prototypes(lib):
         boolean,
         byte,
         ctypes.c_int,
-        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_void_p,
         ctypes.c_void_p,
     ]
     lib.CH347SPI_Read.restype = boolean
@@ -125,7 +130,7 @@ def _configure_prototypes(lib):
         ctypes.c_void_p,
         ctypes.c_int,
         ctypes.c_void_p,
-        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_void_p,
     ]
     lib.CH347StreamI2C_RetAck.restype = boolean
     lib.CH347ReadEEPROM.argtypes = [
