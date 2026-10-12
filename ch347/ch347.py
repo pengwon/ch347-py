@@ -307,7 +307,7 @@ class CH347:
 
         self.ch347dll.CH347Uart_SetDeviceNotify.argtypes = [
             ctypes.c_ulong,
-            ctypes.POINTER(ctypes.c_ubyte),
+            ctypes.c_char_p,
             self.NOTIFY_ROUTINE,
         ]
         self.ch347dll.CH347Uart_SetDeviceNotify.restype = ctypes.c_bool
