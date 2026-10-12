@@ -1,6 +1,8 @@
 import ctypes
 from typing import List
 
+from ch347.library import load_library
+
 
 class DeviceInfo(ctypes.Structure):
     MAX_PATH = 260
@@ -105,16 +107,13 @@ class CH347:
         Initialize the CH347 interface.
 
         Args:
-            device_index (int): The index of the device to open (default: 0).
-            dll_path (str, optional): Path to the CH347 DLL file. If None, the system will
-                                    search for the DLL in system directories.
+            device_index (int): The index of the device to open (default: 0). On
+                Linux a /dev/ch34x_pis* path can be given instead of an index.
+            dll_path (str, optional): Path to the CH347 library -- CH347DLLA64.DLL
+                on Windows, libch347.so on Linux. If None, the library is searched
+                for in the system directories.
         """
-        if dll_path is None:
-            # Let Windows find the DLL in system directories
-            self.ch347dll = ctypes.WinDLL("CH347DLLA64")
-        else:
-            # Use the specified path
-            self.ch347dll = ctypes.WinDLL(dll_path)
+        self.ch347dll = load_library(dll_path)
 
         self.device_index = device_index
 

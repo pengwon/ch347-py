@@ -4,7 +4,7 @@
 
 ## Introduction
 
-`ch347-py` is a Python binding library for driving the CH347 chip. It provides a simple way to interact with the CH347 chip, and can be used to develop applications for I2C, SPI, and other communication interfaces.
+`ch347-py` is a Python binding library for driving the CH347 chip on Windows and Linux. It provides a simple way to interact with the CH347 chip, and can be used to develop applications for I2C, SPI, and other communication interfaces.
 
 ## Installation
 
@@ -56,6 +56,43 @@ uv sync
 pip install -e ".[dev]"
 ```
 
+### On Linux
+
+ch347-py calls WCH's own POSIX library, so install it first:
+
+```bash
+git clone https://github.com/WCHSoftGroup/ch341par_linux.git
+cd ch341par_linux/driver
+make && sudo make install                      # ch34x_pis kernel driver, creates /dev/ch34x_pis*
+
+sudo cp ../lib/x64/dynamic/libch347.so /usr/lib   # also built for aarch64, arm and mips
+sudo ldconfig
+```
+
+Then let non-root users open the device node:
+
+```bash
+echo 'KERNEL=="ch34x_pis*", MODE="0666"' | sudo tee /etc/udev/rules.d/99-ch347.rules
+sudo udevadm control --reload-rules
+```
+
+`CH347()` opens `/dev/ch34x_pis0`; name a node instead of an index when the chip is in
+HID mode or when a second adapter matters: `CH347(device_index="/dev/hidraw0")`.
+
+Parts of the interface that libch347.so does not offer raise `NotImplementedError`
+on Linux:
+
+- `set_device_notify` — plug/unplug events have no library call; watch
+  `/dev/ch34x_pis*` with a udev monitor.
+- `uart_*` — the serial pins appear as `/dev/tty*`, which pyserial drives.
+- `get_version`, `get_serial_number`, `read_data`, `write_data`,
+  `spi_set_chip_select` and `read_interrupt_status` — use `get_chip_type`, the SPI and
+  I2C stream methods, and the `SPIConfig` passed to `spi_init`.
+
+`set_interrupt` works with two differences: only one GPIO pin can be an interrupt
+source at a time, and the callback receives an all-zero status block because the
+kernel delivers a bare edge signal — read the pins with `gpio_get`.
+
 ## Usage
 
 First, you need to import the `CH347` class from the `ch347` module:
@@ -73,7 +110,15 @@ driver.spi_write(0x00, [0xFF] * 10)
 
 ## Testing
 
-This project includes some test scripts. You can run these scripts to test and demonstrate how to use this library.
+This project includes test scripts that double as examples of how to use the library.
+
+Two of them run against a stand-in for the CH347 library, so no hardware is needed:
+
+```bash
+uv run pytest tests/test_callbacks.py tests/test_linux_library.py
+```
+
+The rest are hardware cases; run them with a CH347 plugged in.
 
 ## References
 

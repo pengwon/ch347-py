@@ -4,7 +4,7 @@
 
 ## 简介
 
-`ch347-py`是一个用于驱动CH347芯片的Python绑定库。它提供了一种简单的方式来与CH347芯片进行交互，可以基于此开发I2C、SPI等通信接口应用。
+`ch347-py`是一个用于驱动CH347芯片的Python绑定库，支持 Windows 和 Linux。它提供了一种简单的方式来与CH347芯片进行交互，可以基于此开发I2C、SPI等通信接口应用。
 
 ## 安装
 
@@ -56,6 +56,40 @@ uv sync
 pip install -e ".[dev]"
 ```
 
+### Linux 环境
+
+ch347-py 在 Linux 上调用沁恒自己发布的动态库，先把它装好：
+
+```bash
+git clone https://github.com/WCHSoftGroup/ch341par_linux.git
+cd ch341par_linux/driver
+make && sudo make install                         # ch34x_pis 内核驱动，生成 /dev/ch34x_pis*
+
+sudo cp ../lib/x64/dynamic/libch347.so /usr/lib   # 另提供 aarch64、arm、mips 版本
+sudo ldconfig
+```
+
+再放开设备节点权限，让普通用户也能打开：
+
+```bash
+echo 'KERNEL=="ch34x_pis*", MODE="0666"' | sudo tee /etc/udev/rules.d/99-ch347.rules
+sudo udevadm control --reload-rules
+```
+
+`CH347()` 默认打开 `/dev/ch34x_pis0`；芯片工作在 HID 模式，或者要区分多个适配器时，
+可以直接给出节点名：`CH347(device_index="/dev/hidraw0")`。
+
+libch347.so 里没有对应实现的接口，在 Linux 下会抛 `NotImplementedError`：
+
+- `set_device_notify`：库不提供插拔事件回调，可以用 udev 监听 `/dev/ch34x_pis*` 的出现与消失。
+- `uart_*`：串口功能以 `/dev/tty*` 形式提供，用 pyserial 即可。
+- `get_version`、`get_serial_number`、`read_data`、`write_data`、`spi_set_chip_select`、
+  `read_interrupt_status`：改用 `get_chip_type`、SPI/I2C 流接口，以及传给 `spi_init`
+  的 `SPIConfig`。
+
+`set_interrupt` 可用，但有两点差别：同一时刻只能有一个 GPIO 作为中断源；回调收到的是
+全零状态块（内核只送边沿信号），需要引脚电平时用 `gpio_get` 读取。
+
 ## 使用方法
 
 首先，你需要从`ch347`模块中导入`CH347`类：
@@ -74,6 +108,14 @@ driver.spi_write(0x00, [0xFF] * 10)
 ## 测试
 
 本项目包含了一些测试脚本，你可以运行这些脚本来测试和演示如何使用这个库。
+
+其中两个不需要接上 CH347，它们对着一个假的库对象跑：
+
+```bash
+uv run pytest tests/test_callbacks.py tests/test_linux_library.py
+```
+
+其余脚本是硬件用例，插上设备后再运行。
 
 ## 参考文档
 
