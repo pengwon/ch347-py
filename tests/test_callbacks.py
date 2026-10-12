@@ -39,6 +39,9 @@ class FakeDll:
     def calls_to(self, name):
         return self._functions[name].calls
 
+    def prototype(self, name):
+        return self._functions[name].argtypes
+
 
 @pytest.fixture
 def dll(monkeypatch):
@@ -82,6 +85,24 @@ def test_none_cancels_the_notification(dll):
 
     ((callback),) = [args[-1] for args in dll.calls_to("CH347SetDeviceNotify")]
     assert not callback
+
+
+@pytest.mark.parametrize(
+    ("function", "register"),
+    [
+        ("CH347SetDeviceNotify", lambda d: d.set_device_notify(b"vid_1a86\x00")),
+        ("CH347Uart_SetDeviceNotify", lambda d: d.uart_set_notify(b"vid_1a86\x00")),
+    ],
+    ids=["device", "uart"],
+)
+def test_the_device_id_is_handed_over_as_a_byte_string(dll, function, register):
+    """CH347DLL_EN.H declares PCHAR; POINTER(c_ubyte) would reject the bytes."""
+    device = CH347()
+
+    register(device)
+
+    assert dll.prototype(function)[1] is ctypes.c_char_p
+    assert dll.calls_to(function)[-1][1] == b"vid_1a86\x00"
 
 
 def test_default_interrupt_callback_matches_the_dll_signature(dll, capsys):
