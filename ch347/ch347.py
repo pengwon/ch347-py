@@ -82,6 +82,12 @@ class CH347:
     # MAX devices number
     MAX_DEVICE_NUMBER = 8
 
+    # Device event statuses passed to the notification callback, see
+    # mPCH347_NOTIFY_ROUTINE in ch347/include/CH347DLL_EN.H
+    DEVICE_REMOVE = 0
+    DEVICE_REMOVE_PENDING = 1
+    DEVICE_ARRIVAL = 3
+
     # Define the callback function type
     NOTIFY_ROUTINE = ctypes.CFUNCTYPE(None, ctypes.c_ulong)
 
@@ -89,6 +95,10 @@ class CH347:
     INTERRUPT_ROUTINE = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_ubyte))
 
     INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+    # Distinguishes "caller did not choose a callback" from an explicit None,
+    # which the DLL understands as "cancel the notification".
+    _USE_DEFAULT = object()
 
     def __init__(self, device_index=0, dll_path=None):
         """
@@ -108,12 +118,13 @@ class CH347:
 
         self.device_index = device_index
 
-        # 创建回调函数对象并绑定到实例属性
-        self.callback_func = self.NOTIFY_ROUTINE(self.event_callback)
-        # 创建中断回调函数对象并绑定到实例属性
-        self.interrupt_cb_func = self.INTERRUPT_ROUTINE(self.interrupt_callback)
-        # 创建回调函数对象并绑定到实例属性
-        self.uart_callback_func = self.NOTIFY_ROUTINE(self.uart_event_callback)
+        # Callbacks handed to the DLL are filled in by the set_* methods below
+        # and kept on the instance: the library only stores the bare function
+        # pointer, so a callback that got garbage collected would leave the
+        # library calling through a dangling pointer.
+        self.callback_func = None
+        self.interrupt_cb_func = None
+        self.uart_callback_func = None
 
         # Set the function argument types and return type for CH347OpenDevice
         self.ch347dll.CH347OpenDevice.argtypes = [ctypes.c_ulong]
@@ -144,7 +155,7 @@ class CH347:
         self.ch347dll.CH347SetDeviceNotify.argtypes = [
             ctypes.c_ulong,
             ctypes.c_char_p,
-            ctypes.CFUNCTYPE(None, ctypes.c_ulong),
+            self.NOTIFY_ROUTINE,
         ]
         self.ch347dll.CH347SetDeviceNotify.restype = ctypes.c_bool
 
@@ -372,33 +383,47 @@ class CH347:
         return num_devices
 
     @staticmethod
-    def event_callback(self, event_status):
-        # Callback function implementation
+    def event_callback(event_status):
+        """Default device event notification handler, called with one status."""
         print("Callback event status:", event_status)
-        if event_status == 0:
+        if event_status == CH347.DEVICE_REMOVE:
             # Device unplug event
             print("Device unplugged")
-        elif event_status == 3:
+        elif event_status == CH347.DEVICE_ARRIVAL:
             # Device insertion event
             print("Device inserted")
 
-    @INTERRUPT_ROUTINE
-    def interrupt_callback(self, istatus):
-        # Callback function implementation
+    @staticmethod
+    def interrupt_callback(istatus):
+        """Default GPIO interrupt handler, called with the 8-byte pin status."""
         # Cast to pointer to array of 8 unsigned bytes
         byte_array = ctypes.cast(istatus, ctypes.POINTER(ctypes.c_ubyte * 8)).contents
         print("Interrupt received:", " ".join(f"0x{b:02X}" for b in byte_array))
 
-    @NOTIFY_ROUTINE
-    def uart_event_callback(self, event_status):
-        # Callback function implementation
+    @staticmethod
+    def uart_event_callback(event_status):
+        """Default UART device event notification handler."""
         print("Uart callback event status:", event_status)
-        if event_status == 0:
+        if event_status == CH347.DEVICE_REMOVE:
             # Device unplug event
             print("Uart unplugged")
-        elif event_status == 3:
+        elif event_status == CH347.DEVICE_ARRIVAL:
             # Device insertion event
             print("Uart inserted")
+
+    @staticmethod
+    def _as_callback(routine_type, routine):
+        """Build the C-callable for `routine`, or a NULL pointer to cancel."""
+        if routine is None:
+            return ctypes.cast(0, routine_type)
+        return routine_type(routine)
+
+    @staticmethod
+    def _as_device_id(device_id):
+        """The DLL takes the device ID as a NUL-terminated byte string."""
+        if isinstance(device_id, str):
+            return device_id.encode()
+        return device_id
 
     def open_device(self):
         """
@@ -473,19 +498,25 @@ class CH347:
         else:
             return None
 
-    def set_device_notify(self, device_id, notify_routine=event_callback):
+    def set_device_notify(self, device_id, notify_routine=_USE_DEFAULT):
         """
         Configure device event notifier.
 
         Args:
-            device_id (str): Optional parameter specifying the ID of the monitored device.
-            notify_routine (callable): Callback function to handle device events.
+            device_id (str or bytes): ID of the monitored device, e.g. b"vid_1a86".
+            notify_routine (callable or None): Callback invoked with a single device
+                event status. Defaults to `event_callback`; None cancels the
+                notification.
 
         Returns:
             bool: True if successful, False otherwise.
         """
-        callback = self.NOTIFY_ROUTINE(notify_routine)
-        result = self.ch347dll.CH347SetDeviceNotify(self.device_index, device_id, callback)
+        if notify_routine is self._USE_DEFAULT:
+            notify_routine = self.event_callback
+        self.callback_func = self._as_callback(self.NOTIFY_ROUTINE, notify_routine)
+        result = self.ch347dll.CH347SetDeviceNotify(
+            self.device_index, self._as_device_id(device_id), self.callback_func
+        )
         return result
 
     def read_data(self, buffer, length):
@@ -1060,7 +1091,12 @@ class CH347:
         return result
 
     def set_interrupt(
-        self, int0_pin, int0_mode, int1_pin, int1_mode, interrupt_callback_func=interrupt_callback
+        self,
+        int0_pin,
+        int0_mode,
+        int1_pin,
+        int1_mode,
+        interrupt_callback_func=_USE_DEFAULT,
     ):
         """
         Set CH347 GPIO Interrupt Service Routine
@@ -1070,18 +1106,16 @@ class CH347:
             int0_mode (int): Interrupt mode for int0 (0=falling,1=rising,2=both,3=reserved)
             int1_pin (int): Interrupt GPIO pin number 0-7 or >7 to disable
             int1_mode (int): Interrupt mode for int1 (same as int0_mode)
-            interrupt_callback_func (callable or None): Callback function or None to disable ISR
+            interrupt_callback_func (callable or None): Callback function, or None to
+                disable the ISR. Defaults to `interrupt_callback`.
 
         Returns:
             bool: True if successful, False otherwise
         """
 
-        if interrupt_callback_func is None:
-            # Create a NULL callback pointer to disable interrupt
-            self.interrupt_cb_func = ctypes.cast(0, self.INTERRUPT_ROUTINE)
-        else:
-            # Wrap the Python callback with the C function prototype
-            self.interrupt_cb_func = self.INTERRUPT_ROUTINE(interrupt_callback_func)
+        if interrupt_callback_func is self._USE_DEFAULT:
+            interrupt_callback_func = self.interrupt_callback
+        self.interrupt_cb_func = self._as_callback(self.INTERRUPT_ROUTINE, interrupt_callback_func)
 
         result = self.ch347dll.CH347SetIntRoutine(
             self.device_index, int0_pin, int0_mode, int1_pin, int1_mode, self.interrupt_cb_func
@@ -1137,9 +1171,15 @@ class CH347:
         result = self.ch347dll.CH347Uart_Close(self.device_index)
         return result
 
-    def uart_set_notify(self, device_id, uart_notify_routine=uart_event_callback):
+    def uart_set_notify(self, device_id, uart_notify_routine=_USE_DEFAULT):
         """
         Set the device event notification program
+
+        Args:
+            device_id (str or bytes): ID of the monitored device, e.g. b"vid_1a86".
+            uart_notify_routine (callable or None): Callback invoked with a single
+                device event status. Defaults to `uart_event_callback`; None cancels
+                the notification.
         """
         ######################################################
         #
@@ -1147,15 +1187,12 @@ class CH347:
         #
         ######################################################
 
-        if uart_notify_routine is None:
-            # Create a NULL callback pointer to disable interrupt
-            self.uart_callback_func = ctypes.cast(0, self.NOTIFY_ROUTINE)
-        else:
-            # Wrap the Python callback with the C function prototype
-            self.uart_callback_func = self.NOTIFY_ROUTINE(uart_notify_routine)
+        if uart_notify_routine is self._USE_DEFAULT:
+            uart_notify_routine = self.uart_event_callback
+        self.uart_callback_func = self._as_callback(self.NOTIFY_ROUTINE, uart_notify_routine)
 
         result = self.ch347dll.CH347Uart_SetDeviceNotify(
-            self.device_index, device_id, self.uart_callback_func
+            self.device_index, self._as_device_id(device_id), self.uart_callback_func
         )
         return result
 
