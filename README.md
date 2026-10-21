@@ -90,6 +90,23 @@ libch347.so 里没有对应实现的接口，在 Linux 下会抛 `NotImplemented
 `set_interrupt` 可用，但有两点差别：同一时刻只能有一个 GPIO 作为中断源；回调收到的是
 全零状态块（内核只送边沿信号），需要引脚电平时用 `gpio_get` 读取。
 
+### 设备插拔通知（Windows）
+
+`set_device_notify` 只有在调用它的线程会派发 Windows 消息时才有效：DLL 会在该线程上创建
+一个隐藏的通知窗口，驱动的插拔事件通过这个窗口的消息队列送达。Tk、Qt 这类自带主循环的
+程序本来就在派发忙，不用额外处理。控制台程序如果只是 `sleep`，消息永远得不到派发，回调
+也就不会响——改用工作线程注册：
+
+```python
+def on_event(event_status):
+    print("device event:", event_status)
+
+dev = CH347()
+dev.start_device_notify(b"vid_1a86\x00", on_event)
+# …… 回调在 pump 线程上执行 ……
+dev.stop_device_notify()
+```
+
 ## 使用方法
 
 首先，你需要从`ch347`模块中导入`CH347`类：

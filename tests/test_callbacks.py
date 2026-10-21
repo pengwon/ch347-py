@@ -5,6 +5,8 @@ They run against a stand-in for CH347DLLA64, so no CH347 hardware is needed.
 
 import ctypes
 import gc
+import sys
+import threading
 
 import pytest
 
@@ -125,3 +127,89 @@ def test_interrupt_can_be_disabled(dll):
 
     ((callback),) = [args[-1] for args in dll.calls_to("CH347SetIntRoutine")]
     assert not callback
+
+
+def test_notification_registers_on_a_pumping_thread(dll):
+    device = CH347()
+    registered_on = []
+
+    record = dll.CH347SetDeviceNotify
+
+    def record_thread(index, device_id, callback):
+        registered_on.append(threading.get_ident())
+        return record(index, device_id, callback)
+
+    dll.CH347SetDeviceNotify = record_thread
+    try:
+        assert device.start_device_notify(b"vid_1a86\x00", lambda status: None) is True
+        assert device._notify_pump.is_alive()
+        assert registered_on[0] == device._notify_pump.ident
+        assert registered_on[0] != threading.get_ident()
+    finally:
+        assert device.stop_device_notify() is True
+
+    # Stopping cancels the notification, from the thread that owns the window.
+    ((index, device_id, callback),) = dll.calls_to("CH347SetDeviceNotify")[1:]
+    assert device_id == b"vid_1a86\x00"
+    assert not callback
+    assert registered_on[-1] == registered_on[0]
+
+
+def test_starting_notification_twice_replaces_the_previous_pump(dll):
+    device = CH347()
+    device.start_device_notify(b"vid_1a86\x00", lambda status: None)
+    first = device._notify_pump
+
+    device.start_device_notify(b"vid_1a86\x00", lambda status: None)
+
+    assert not first.is_alive()
+    assert device.stop_device_notify() is True
+    assert device.stop_device_notify() is False
+
+
+def test_notification_is_windows_only(dll, monkeypatch):
+    device = CH347()
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    with pytest.raises(OSError, match="udev"):
+        device.start_device_notify(b"vid_1a86\x00")
+
+
+def test_pump_cancels_when_stopped():
+    from ch347.win_notify import DeviceNotifyPump
+
+    calls = []
+    pump = DeviceNotifyPump(
+        lambda: calls.append("register") or True, lambda: calls.append("cancel")
+    )
+    pump.start()
+
+    assert pump.wait_registered() is True
+    assert calls == ["register"]
+    assert pump.stop() is True
+    assert calls == ["register", "cancel"]
+
+
+def test_pump_exits_when_registration_fails():
+    from ch347.win_notify import DeviceNotifyPump
+
+    pump = DeviceNotifyPump(lambda: False, lambda: None)
+    pump.start()
+
+    assert pump.wait_registered() is False
+    assert pump.stop() is True
+
+
+def test_pump_reports_registration_errors():
+    from ch347.win_notify import DeviceNotifyPump
+
+    def refuse():
+        raise ctypes.ArgumentError("no notification window")
+
+    pump = DeviceNotifyPump(refuse, lambda: None)
+    pump.start()
+    try:
+        with pytest.raises(ctypes.ArgumentError):
+            pump.wait_registered()
+    finally:
+        pump.join()

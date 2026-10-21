@@ -1,4 +1,5 @@
 import ctypes
+import sys
 from typing import List
 
 from ch347.library import load_library
@@ -124,6 +125,8 @@ class CH347:
         self.callback_func = None
         self.interrupt_cb_func = None
         self.uart_callback_func = None
+        # Set by start_device_notify while its message pump is running.
+        self._notify_pump = None
 
         # Set the function argument types and return type for CH347OpenDevice
         self.ch347dll.CH347OpenDevice.argtypes = [ctypes.c_ulong]
@@ -501,6 +504,10 @@ class CH347:
         """
         Configure device event notifier.
 
+        The DLL creates its notification window on the calling thread, so that
+        thread has to dispatch Windows messages for the callback to run; a console
+        program should use `start_device_notify` instead.
+
         Args:
             device_id (str or bytes): ID of the monitored device, e.g. b"vid_1a86".
             notify_routine (callable or None): Callback invoked with a single device
@@ -517,6 +524,63 @@ class CH347:
             self.device_index, self._as_device_id(device_id), self.callback_func
         )
         return result
+
+    def start_device_notify(self, device_id=None, notify_routine=_USE_DEFAULT):
+        """
+        Watch for plug/unplug events on a thread that pumps Windows messages.
+
+        CH347SetDeviceNotify creates its notification window on the thread it is
+        called from and the driver reports hotplug through that window's queue,
+        so the calling thread has to dispatch messages. A console program that
+        sleeps in its loop never does and its callback never runs; GUI toolkits
+        pump on their main loop and can keep using `set_device_notify` directly.
+
+        Args:
+            device_id (str or bytes): ID of the monitored device, e.g. b"vid_1a86".
+                Defaults to every CH347.
+            notify_routine (callable or None): Callback invoked with a single device
+                event status on the pump thread. Defaults to `event_callback`;
+                passing None cancels a registration once the pump has stopped.
+
+        Returns:
+            bool: True if the notification was registered.
+
+        Raises:
+            OSError: If not running on Windows, where the library has no
+                device-event call at all.
+        """
+        if sys.platform != "win32":
+            raise OSError(
+                "Device notifications need Windows messages; on Linux watch the "
+                "device node with a udev monitor instead."
+            )
+        from ch347.win_notify import DeviceNotifyPump
+
+        self.stop_device_notify()
+        if notify_routine is self._USE_DEFAULT:
+            notify_routine = self.event_callback
+        pump = DeviceNotifyPump(
+            register=lambda: self.set_device_notify(device_id, notify_routine),
+            cancel=lambda: self.set_device_notify(device_id, None),
+        )
+        pump.start()
+        if not pump.wait_registered():
+            pump.join()
+            return False
+        self._notify_pump = pump
+        return True
+
+    def stop_device_notify(self):
+        """
+        Stop the pump started by `start_device_notify` and cancel the notification.
+
+        Returns:
+            bool: True if a pump was running and is gone now.
+        """
+        pump, self._notify_pump = self._notify_pump, None
+        if pump is None:
+            return False
+        return pump.stop()
 
     def read_data(self, buffer, length):
         """

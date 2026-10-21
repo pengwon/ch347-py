@@ -93,6 +93,24 @@ on Linux:
 source at a time, and the callback receives an all-zero status block because the
 kernel delivers a bare edge signal — read the pins with `gpio_get`.
 
+### Plug/unplug notifications (Windows)
+
+`set_device_notify` only works when the thread that calls it dispatches Windows
+messages: the DLL creates a hidden notification window on that thread and the driver
+reports hotplug through its queue. GUI toolkits pump on their main loop and need no help.
+A console program that just sleeps never dispatches anything, so its callback never runs
+— register on a pumping thread instead:
+
+```python
+def on_event(event_status):
+    print("device event:", event_status)
+
+dev = CH347()
+dev.start_device_notify(b"vid_1a86\x00", on_event)
+# ... the callback runs on the pump thread ...
+dev.stop_device_notify()
+```
+
 ## Usage
 
 First, you need to import the `CH347` class from the `ch347` module:
